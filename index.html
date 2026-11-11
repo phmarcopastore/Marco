@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Mostre fotografiche</title>
+<meta name="description" content="Agenda delle mostre fotografiche con giorni alla chiusura">
+<meta name="theme-color" content="#1d2126">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mostre">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --bg: #eef0f2; --surface: #ffffff; --ink: #1d2126; --muted: #5f6873; --line: #d6dbe0;
+  --accent: #2f5d8a; --accent-ink: #ffffff; --track: #e3e7eb; --danger: #b3261e; --ok: #2e7d32;
+  --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --chip-l: 42%; --chip-bg-l: 92%;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15181c; --surface: #1f2328; --ink: #e8ebee; --muted: #9aa3ad; --line: #2f353c;
+    --accent: #7fb0e0; --accent-ink: #10161c; --track: #2c3238; --danger: #f2948c; --ok: #8fd694;
+    --chip-l: 68%; --chip-bg-l: 20%; color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+[hidden] { display: none !important; }
+.wrap {
+  max-width: 820px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 8px 48px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+header.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg);
+  padding-block: 12px; display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px;
+  border-bottom: 1px solid var(--line);
+}
+h1 { font-family: var(--font-display); font-weight: 800; letter-spacing: -0.02em; font-size: clamp(1.5rem, 4vw, 2rem); line-height: 1.1; margin: 0; }
+.sub { margin: 4px 0 0; color: var(--muted); font-size: 0.85rem; }
+.mono { font-family: var(--font-mono); }
+.head-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+button {
+  font: inherit; font-weight: 600; cursor: pointer; border-radius: 6px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); padding: 8px 14px; min-height: 40px;
+}
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button.ghost { background: transparent; }
+button.danger { color: var(--danger); }
+button:disabled { opacity: .5; cursor: not-allowed; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#btnSync .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); margin-right: 6px; vertical-align: middle; }
+#btnSync.on .dot { background: var(--ok); }
+#btnSync.err .dot { background: var(--danger); }
+#btnSync.busy .dot { animation: pulse 1s infinite; }
+@keyframes pulse { 50% { opacity: .2; } }
+
+.summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.summary div { background: var(--surface); padding: 10px 14px; }
+.summary b { display: block; font-family: var(--font-display); font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+.summary span { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.panel h2 { grid-column: 1 / -1; margin: 0; font-family: var(--font-display); font-size: 1.1rem; }
+.panel p.help { grid-column: 1 / -1; margin: 0; font-size: 0.88rem; color: var(--muted); }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field.full { grid-column: 1 / -1; }
+label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+input, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; min-height: 40px; width: 100%; }
+input[type="date"] { font-family: var(--font-mono); }
+textarea { min-height: 64px; resize: vertical; }
+.actions { grid-column: 1 / -1; display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; align-items: center; }
+.msg { font-size: 0.85rem; margin-right: auto; }
+.msg.err { color: var(--danger); }
+.msg.ok { color: var(--ok); }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.tabs button { min-height: 34px; padding: 4px 12px; font-size: 0.85rem; background: transparent; }
+.tabs button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.legend { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: var(--muted); font-family: var(--font-mono); }
+.legend i { display: block; width: 110px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, hsl(0 75% 50%), hsl(45 85% 50%), hsl(130 55% 42%)); }
+
+.list { display: flex; flex-direction: column; gap: 10px; }
+.card { --h: 130; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: grid; grid-template-columns: 1fr auto; gap: 6px 14px; }
+.card .meta { min-width: 0; }
+.card h3 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; line-height: 1.25; overflow-wrap: anywhere; }
+.card .who { color: var(--muted); font-size: 0.9rem; overflow-wrap: anywhere; }
+.chip { align-self: start; text-align: right; background: hsl(var(--h) 70% var(--chip-bg-l)); color: hsl(var(--h) 75% var(--chip-l)); border: 1px solid hsl(var(--h) 60% var(--chip-l) / .35); border-radius: 6px; padding: 4px 10px; white-space: nowrap; }
+.chip b { display: block; font-family: var(--font-display); font-size: 1.35rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.chip small { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+.card.ended { opacity: .75; }
+.card.ended .chip { background: var(--track); color: var(--muted); border-color: var(--line); }
+.timeline { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.bar { position: relative; height: 10px; border-radius: 5px; background: var(--track); overflow: hidden; }
+.bar > span { position: absolute; inset: 0 auto 0 0; background: hsl(var(--h) 65% 48%); border-radius: 5px; }
+.card.ended .bar > span { background: var(--muted); }
+.dates { display: flex; justify-content: space-between; gap: 8px; font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums; flex-wrap: wrap; }
+.notes { grid-column: 1 / -1; font-size: 0.88rem; color: var(--muted); margin: 0; overflow-wrap: anywhere; white-space: pre-line; }
+.notes a { color: var(--accent); }
+.row-actions { grid-column: 1 / -1; display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+.row-actions button { min-height: 32px; padding: 2px 10px; font-size: 0.82rem; }
+.confirm { display: flex; gap: 6px; align-items: center; font-size: 0.85rem; flex-wrap: wrap; }
+.empty { text-align: center; color: var(--muted); padding: 40px 16px; border: 1px dashed var(--line); border-radius: 8px; }
+.status { font-size: 0.8rem; color: var(--muted); margin: 0; }
+
+@media (max-width: 560px) {
+  .panel { grid-template-columns: 1fr; }
+  .summary b { font-size: 1.2rem; }
+  .legend { display: none; }
+  header.top { position: static; }
+}
+@media (prefers-reduced-motion: no-preference) { .bar > span { transition: width .4s ease; } }
+@media (prefers-reduced-motion: reduce) { #btnSync.busy .dot { animation: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Mostre fotografiche</h1>
+      <p class="sub">Oggi <span class="mono" id="today"></span> · il colore indica quanto manca alla chiusura</p>
+    </div>
+    <div class="head-actions">
+      <button type="button" id="btnSync" title="Sincronizza"><span class="dot"></span>Sincronizza</button>
+      <button type="button" class="primary" id="btnAdd">+ Nuova mostra</button>
+    </div>
+  </header>
+
+  <section class="summary" aria-label="Riepilogo">
+    <div><b id="nOn">0</b><span>In corso</span></div>
+    <div><b id="nSoon">0</b><span>In arrivo</span></div>
+    <div><b id="nEnding">0</b><span>Chiudono entro 14 gg</span></div>
+  </section>
+
+  <!-- Impostazioni sincronizzazione -->
+  <section class="panel" id="syncPanel" hidden>
+    <h2>Sincronizzazione tra telefono e computer</h2>
+    <p class="help">Le mostre vengono salvate in un Gist privato del tuo account GitHub. Inserisci lo stesso token su ogni dispositivo: l’app trova da sola i dati già salvati. Il token resta solo su questo dispositivo.</p>
+    <div class="field full">
+      <label for="sToken">Token GitHub (permesso “gist”)</label>
+      <input id="sToken" type="password" autocomplete="off" spellcheck="false" placeholder="ghp_… oppure github_pat_…">
+    </div>
+    <div class="actions">
+      <span class="msg" id="sMsg" role="status"></span>
+      <button type="button" class="ghost danger" id="btnUnlink">Scollega</button>
+      <button type="button" class="ghost" id="btnCloseSync">Chiudi</button>
+      <button type="button" class="primary" id="btnSaveSync">Salva e sincronizza</button>
+    </div>
+    <h2>Copia di sicurezza su file</h2>
+    <p class="help">In alternativa puoi esportare le mostre in un file e importarlo sull’altro dispositivo. L’importazione unisce i dati, non cancella nulla.</p>
+    <div class="actions">
+      <span class="msg" id="fileMsg" role="status"></span>
+      <button type="button" class="ghost" id="btnExport">Esporta file</button>
+      <button type="button" class="ghost" id="btnImport">Importa file</button>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+    </div>
+  </section>
+
+  <form class="panel" id="f" hidden novalidate>
+    <h2 id="formTitle">Nuova mostra</h2>
+    <div class="field full"><label for="fTitle">Titolo</label><input id="fTitle" maxlength="200" placeholder="Es. Paesaggi del Nord"></div>
+    <div class="field"><label for="fAuthor">Fotografo / curatore</label><input id="fAuthor" maxlength="200"></div>
+    <div class="field"><label for="fPlace">Luogo e città</label><input id="fPlace" maxlength="200" placeholder="Museo, galleria…"></div>
+    <div class="field"><label for="fStart">Data inizio</label><input id="fStart" type="date"></div>
+    <div class="field"><label for="fEnd">Data fine</label><input id="fEnd" type="date"></div>
+    <div class="field full"><label for="fLink">Link (opzionale)</label><input id="fLink" type="url" maxlength="500" placeholder="https://"></div>
+    <div class="field full"><label for="fNotes">Note</label><textarea id="fNotes" maxlength="2000" placeholder="Orari, biglietti, con chi andarci…"></textarea></div>
+    <div class="actions">
+      <span class="msg err" id="fErr" role="alert"></span>
+      <button type="button" class="ghost" id="btnCancel">Annulla</button>
+      <button type="submit" class="primary" id="btnSave">Salva</button>
+    </div>
+  </form>
+
+  <div class="toolbar">
+    <div class="tabs" role="group" aria-label="Filtro">
+      <button type="button" data-filter="active" aria-pressed="true">In corso e in arrivo</button>
+      <button type="button" data-filter="on" aria-pressed="false">Solo in corso</button>
+      <button type="button" data-filter="ended" aria-pressed="false">Concluse</button>
+      <button type="button" data-filter="all" aria-pressed="false">Tutte</button>
+    </div>
+    <div class="legend" aria-hidden="true">0 gg <i></i> 60+ gg</div>
+  </div>
+
+  <div class="list" id="list"></div>
+  <p class="status" id="status"></p>
+  <div><button type="button" class="ghost" id="btnSettings">Impostazioni sincronizzazione e backup</button></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const GREEN_DAYS = 60;            // da questa soglia in su: verde pieno
+  const DAY = 86400000;
+  const K_ITEMS = 'mostre.items.v2';
+  const K_TOKEN = 'mostre.gh.token';
+  const K_GIST = 'mostre.gh.gist';
+  const K_LAST = 'mostre.gh.last';
+  const K_FILTER = 'mostre.filter';
+  const GIST_FILE = 'mostre-fotografiche.json';
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- storage locale ----------
+  const ls = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } },
+    del(k) { try { localStorage.removeItem(k); } catch (e) {} },
+  };
+  // all = tutte le voci, comprese quelle eliminate (deleted:true) per propagare le cancellazioni
+  let all = [];
+  try { all = JSON.parse(ls.get(K_ITEMS, '[]')).map(norm).filter(Boolean); } catch (e) { all = []; }
+  // migra i dati della versione precedente, se presenti
+  try {
+    const old = JSON.parse(ls.get('mostre.items', 'null'));
+    if (Array.isArray(old) && old.length && !all.length) { all = old.map((x) => norm({ ...x, updatedAt: Date.now() })).filter(Boolean); persist(); }
+  } catch (e) {}
+
+  function persist() { if (!ls.set(K_ITEMS, JSON.stringify(all))) showStatus('Spazio del browser non disponibile: i dati potrebbero non essere salvati.'); }
+  function live() { return all.filter((m) => !m.deleted); }
+
+  function validISO(s) { return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s); }
+  function norm(d) {
+    if (!d || typeof d.id !== 'string' || !d.id) return null;
+    const t = typeof d.updatedAt === 'number' ? d.updatedAt : 0;
+    if (d.deleted) return { id: d.id, deleted: true, updatedAt: t };
+    if (!validISO(d.start) || !validISO(d.end) || typeof d.title !== 'string') return null;
+    const s = (v) => (typeof v === 'string' ? v : '');
+    return { id: d.id, title: d.title, author: s(d.author), place: s(d.place), start: d.start, end: d.end, link: s(d.link), notes: s(d.notes), updatedAt: t };
+  }
+  // unisce due elenchi: per ogni id vince la modifica più recente
+  function merge(a, b) {
+    const map = new Map();
+    for (const x of a.concat(b)) {
+      const cur = map.get(x.id);
+      if (!cur || x.updatedAt > cur.updatedAt) map.set(x.id, x);
+    }
+    return Array.from(map.values());
+  }
+  function sameSet(a, b) {
+    if (a.length !== b.length) return false;
+    const m = new Map(a.map((x) => [x.id, x.updatedAt]));
+    return b.every((x) => m.get(x.id) === x.updatedAt);
+  }
+  function newId() { return 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+  // ---------- date ----------
+  function todayISO() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function toUTC(iso) { const [y, m, d] = iso.split('-').map(Number); return Date.UTC(y, m - 1, d); }
+  function diffDays(a, b) { return Math.round((toUTC(b) - toUTC(a)) / DAY); }
+  const fmt = new Intl.DateTimeFormat('it-IT', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  function fmtDate(iso) { return fmt.format(new Date(toUTC(iso))); }
+  const fmtTime = new Intl.DateTimeFormat('it-IT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+  function stateOf(m, today) {
+    const left = diffDays(today, m.end);
+    const toStart = diffDays(today, m.start);
+    const total = Math.max(1, diffDays(m.start, m.end) + 1);
+    const status = left < 0 ? 'ended' : toStart > 0 ? 'soon' : 'on';
+    const hue = status === 'ended' ? 0 : Math.round(130 * Math.max(0, Math.min(1, left / GREEN_DAYS)));
+    const elapsed = Math.max(0, Math.min(total, diffDays(m.start, today) + 1));
+    return { left, toStart, total, status, hue, pct: status === 'soon' ? 0 : Math.round(elapsed / total * 100) };
+  }
+
+  // ---------- render ----------
+  let filter = ls.get(K_FILTER, 'active');
+  let editingId = null, confirmId = null;
+  function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function showStatus(t) { $('status').textContent = t || ''; }
+
+  function render() {
+    const today = todayISO();
+    $('today').textContent = fmtDate(today);
+    const rows = live().map((m) => ({ m, s: stateOf(m, today) }));
+    let nOn = 0, nSoon = 0, nEnding = 0;
+    rows.forEach(({ s }) => { if (s.status === 'on') { nOn++; if (s.left <= 14) nEnding++; } if (s.status === 'soon') nSoon++; });
+    $('nOn').textContent = nOn; $('nSoon').textContent = nSoon; $('nEnding').textContent = nEnding;
+    document.querySelectorAll('.tabs button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.filter === filter)));
+
+    const shown = rows.filter(({ s }) => filter === 'all' ? true : filter === 'on' ? s.status === 'on' : filter === 'ended' ? s.status === 'ended' : s.status !== 'ended');
+    shown.sort((a, b) => filter === 'ended' ? b.m.end.localeCompare(a.m.end) : a.m.end.localeCompare(b.m.end) || a.m.start.localeCompare(b.m.start));
+
+    const list = $('list');
+    list.replaceChildren();
+    if (!shown.length) {
+      list.append(el('div', 'empty', rows.length ? 'Nessuna mostra in questo filtro.' : 'Ancora nessuna mostra. Tocca “+ Nuova mostra” per aggiungere la prima con titolo, luogo e date.'));
+      return;
+    }
+    for (const { m, s } of shown) {
+      const card = el('article', 'card' + (s.status === 'ended' ? ' ended' : ''));
+      card.style.setProperty('--h', s.hue);
+      const meta = el('div', 'meta');
+      meta.append(el('h3', null, m.title));
+      const who = [m.author, m.place].filter(Boolean).join(' · ');
+      if (who) meta.append(el('div', 'who', who));
+
+      const chip = el('div', 'chip');
+      if (s.status === 'ended') chip.append(el('b', null, '—'), el('small', null, 'Conclusa'));
+      else if (s.left === 0) chip.append(el('b', null, 'Oggi'), el('small', null, 'Ultimo giorno'));
+      else chip.append(el('b', null, s.left + (s.left === 1 ? ' g' : ' gg')), el('small', null, s.status === 'soon' ? 'Apre tra ' + s.toStart + ' gg' : 'Alla chiusura'));
+
+      const tl = el('div', 'timeline');
+      const bar = el('div', 'bar'); bar.setAttribute('role', 'img');
+      bar.setAttribute('aria-label', s.status === 'soon' ? 'Non ancora iniziata' : s.pct + '% della durata trascorsa');
+      const fill = el('span'); fill.style.width = s.pct + '%'; bar.append(fill);
+      const dates = el('div', 'dates');
+      dates.append(el('span', null, fmtDate(m.start)), el('span', null, s.total + ' giorni'), el('span', null, fmtDate(m.end)));
+      tl.append(bar, dates);
+      card.append(meta, chip, tl);
+
+      if (m.notes || m.link) {
+        const p = el('p', 'notes');
+        if (m.notes) p.append(document.createTextNode(m.notes + (m.link ? '\n' : '')));
+        if (m.link && /^https?:\/\//i.test(m.link)) { const a = el('a', null, 'Sito della mostra ↗'); a.href = m.link; a.target = '_blank'; a.rel = 'noopener noreferrer'; p.append(a); }
+        card.append(p);
+      }
+      const act = el('div', 'row-actions');
+      if (confirmId === m.id) {
+        const c = el('div', 'confirm');
+        const yes = el('button', 'danger', 'Elimina'); yes.type = 'button'; yes.onclick = () => removeItem(m.id);
+        const no = el('button', 'ghost', 'Annulla'); no.type = 'button'; no.onclick = () => { confirmId = null; render(); };
+        c.append(el('span', null, 'Eliminare questa mostra?'), yes, no); act.append(c);
+      } else {
+        const ed = el('button', 'ghost', 'Modifica'); ed.type = 'button'; ed.onclick = () => openForm(m);
+        const del = el('button', 'ghost danger', 'Elimina'); del.type = 'button'; del.onclick = () => { confirmId = m.id; render(); };
+        act.append(ed, del);
+      }
+      card.append(act);
+      list.append(card);
+    }
+  }
+
+  // ---------- modifica dati ----------
+  function upsert(item) {
+    item.updatedAt = Date.now();
+    const i = all.findIndex((x) => x.id === item.id);
+    if (i >= 0) all[i] = item; else all.push(item);
+    persist(); render(); scheduleSync();
+  }
+  function removeItem(id) {
+    confirmId = null;
+    upsert({ id, deleted: true });
+  }
+
+  function openForm(m) {
+    $('syncPanel').hidden = true;
+    editingId = m ? m.id : null;
+    $('formTitle').textContent = m ? 'Modifica mostra' : 'Nuova mostra';
+    $('fTitle').value = m ? m.title : '';
+    $('fAuthor').value = m ? m.author : '';
+    $('fPlace').value = m ? m.place : '';
+    $('fStart').value = m ? m.start : todayISO();
+    $('fEnd').value = m ? m.end : '';
+    $('fLink').value = m ? m.link : '';
+    $('fNotes').value = m ? m.notes : '';
+    $('fErr').textContent = '';
+    $('f').hidden = false;
+    $('f').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    $('fTitle').focus({ preventScroll: true });
+  }
+  function closeForm() { $('f').hidden = true; editingId = null; }
+  $('btnAdd').onclick = () => openForm(null);
+  $('btnCancel').onclick = closeForm;
+  $('f').addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    const d = {
+      id: editingId || newId(),
+      title: $('fTitle').value.trim(), author: $('fAuthor').value.trim(), place: $('fPlace').value.trim(),
+      start: $('fStart').value, end: $('fEnd').value, link: $('fLink').value.trim(), notes: $('fNotes').value.trim(),
+    };
+    const err = (t) => { $('fErr').textContent = t; };
+    if (!d.title) return err('Inserisci il titolo della mostra.');
+    if (!validISO(d.start) || !validISO(d.end)) return err('Inserisci sia la data di inizio sia quella di fine.');
+    if (d.end < d.start) return err('La data di fine deve essere uguale o successiva all’inizio.');
+    if (d.link && !/^https?:\/\//i.test(d.link)) return err('Il link deve iniziare con http:// o https://');
+    upsert(d);
+    closeForm();
+  });
+
+  document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => { filter = b.dataset.filter; ls.set(K_FILTER, filter); render(); }));
+
+  // ---------- sincronizzazione con GitHub Gist ----------
+  const API = 'https://api.github.com';
+  let syncing = false, pending = false, syncTimer = null;
+
+  function token() { return ls.get(K_TOKEN, ''); }
+  function setSyncState(cls, title) {
+    const b = $('btnSync');
+    b.classList.remove('on', 'err', 'busy');
+    if (cls) cls.split(' ').forEach((c) => b.classList.add(c));
+    b.title = title || 'Sincronizza';
+  }
+  function refreshSyncLabel() {
+    const last = Number(ls.get(K_LAST, '0'));
+    if (!token()) { setSyncState('', 'Sincronizzazione non configurata'); return; }
+    setSyncState('on', last ? 'Ultima sincronizzazione: ' + fmtTime.format(new Date(last)) : 'Sincronizzazione configurata');
+  }
+
+  async function gh(path, opts = {}) {
+    const res = await fetch(API + path, {
+      ...opts,
+      headers: { 'Accept': 'application/vnd.github+json', 'Authorization': 'Bearer ' + token(), 'X-GitHub-Api-Version': '2022-11-28', ...(opts.body ? { 'Content-Type': 'application/json' } : {}) },
+      cache: 'no-store',
+    });
+    if (!res.ok) { const e = new Error('HTTP ' + res.status); e.status = res.status; throw e; }
+    return res.status === 204 ? null : res.json();
+  }
+  async function findGist() {
+    for (let page = 1; page <= 10; page++) {
+      const list = await gh('/gists?per_page=100&page=' + page);
+      const hit = list.find((g) => g.files && g.files[GIST_FILE]);
+      if (hit) return hit.id;
+      if (list.length < 100) break;
+    }
+    return null;
+  }
+  async function readGistFile(g) {
+    const f = g.files && g.files[GIST_FILE];
+    if (!f) return [];
+    let text = f.content;
+    if (f.truncated && f.raw_url) text = await (await fetch(f.raw_url, { cache: 'no-store' })).text();
+    const data = JSON.parse(text || '{}');
+    return (Array.isArray(data.items) ? data.items : []).map(norm).filter(Boolean);
+  }
+  function payload(items) { return JSON.stringify({ app: 'mostre-fotografiche', version: 2, savedAt: new Date().toISOString(), items }, null, 1); }
+
+  async function sync(manual) {
+    if (!token()) { if (manual) openSyncPanel(); return; }
+    if (!navigator.onLine) { setSyncState('err', 'Offline: sincronizzo quando torna la connessione'); if (manual) showStatus('Sei offline: le modifiche restano sul dispositivo e verranno sincronizzate dopo.'); return; }
+    if (syncing) { pending = true; return; }
+    syncing = true; setSyncState('busy', 'Sincronizzazione in corso…');
+    try {
+      let gistId = ls.get(K_GIST, '');
+      let remote = [];
+      if (gistId) {
+        try { remote = await readGistFile(await gh('/gists/' + gistId)); }
+        catch (e) { if (e.status === 404) gistId = ''; else throw e; }
+      }
+      if (!gistId) {
+        gistId = await findGist() || '';
+        if (gistId) remote = await readGistFile(await gh('/gists/' + gistId));
+      }
+      const merged = merge(all, remote);
+      if (!gistId) {
+        const g = await gh('/gists', { method: 'POST', body: JSON.stringify({ description: 'Mostre fotografiche – dati app', public: false, files: { [GIST_FILE]: { content: payload(merged) } } }) });
+        gistId = g.id;
+      } else if (!sameSet(merged, remote)) {
+        await gh('/gists/' + gistId, { method: 'PATCH', body: JSON.stringify({ files: { [GIST_FILE]: { content: payload(merged) } } }) });
+      }
+      ls.set(K_GIST, gistId);
+      // le modifiche fatte durante la sincronizzazione restano: si riunisce con lo stato attuale
+      all = merge(all, merged);
+      persist(); render();
+      ls.set(K_LAST, String(Date.now()));
+      refreshSyncLabel();
+      if (manual) showStatus('Sincronizzato alle ' + new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) + '.');
+      else showStatus('');
+      return true;
+    } catch (e) {
+      const msg = e.status === 401 ? 'Token non valido o scaduto: aggiornalo nelle impostazioni di sincronizzazione.'
+        : e.status === 403 || e.status === 404 ? 'Il token non ha il permesso “gist”: creane uno con quel permesso.'
+        : 'Sincronizzazione non riuscita (rete o GitHub non raggiungibile). Le modifiche restano sul dispositivo.';
+      setSyncState('err', msg); showStatus(msg);
+      return false;
+    } finally {
+      syncing = false;
+      if (pending) { pending = false; sync(false); }
+    }
+  }
+  function scheduleSync() { if (!token()) return; clearTimeout(syncTimer); syncTimer = setTimeout(() => sync(false), 1500); }
+
+  function openSyncPanel() {
+    closeForm();
+    $('sToken').value = token();
+    $('sMsg').textContent = token() ? 'Collegato. ' + $('btnSync').title + '.' : '';
+    $('sMsg').className = 'msg';
+    $('btnUnlink').hidden = !token();
+    $('syncPanel').hidden = false;
+    $('syncPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  $('btnSync').onclick = () => { if (token()) sync(true); else openSyncPanel(); };
+  $('btnSettings').onclick = openSyncPanel;
+  $('btnCloseSync').onclick = () => { $('syncPanel').hidden = true; };
+  $('btnSaveSync').onclick = async () => {
+    const t = $('sToken').value.trim();
+    if (!t) { $('sMsg').textContent = 'Incolla il token GitHub.'; $('sMsg').className = 'msg err'; return; }
+    if (t !== token()) ls.del(K_GIST);
+    ls.set(K_TOKEN, t);
+    $('sMsg').textContent = 'Sincronizzazione in corso…'; $('sMsg').className = 'msg';
+    const ok = await sync(true);
+    $('sMsg').textContent = ok ? 'Fatto: i dati sono sincronizzati.' : $('status').textContent;
+    $('sMsg').className = 'msg ' + (ok ? 'ok' : 'err');
+    $('btnUnlink').hidden = false;
+  };
+  $('btnUnlink').onclick = () => {
+    ls.del(K_TOKEN); ls.del(K_GIST); ls.del(K_LAST);
+    $('sToken').value = ''; $('btnUnlink').hidden = true;
+    $('sMsg').textContent = 'Scollegato. Le mostre restano su questo dispositivo.'; $('sMsg').className = 'msg ok';
+    refreshSyncLabel();
+  };
+
+  // ---------- esporta / importa file ----------
+  $('btnExport').onclick = () => {
+    const blob = new Blob([payload(all)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'mostre-' + todayISO() + '.json';
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    $('fileMsg').textContent = 'File esportato.'; $('fileMsg').className = 'msg ok';
+  };
+  $('btnImport').onclick = () => $('importFile').click();
+  $('importFile').onchange = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      const items = (Array.isArray(data) ? data : data.items || []).map((x) => norm({ updatedAt: 1, ...x })).filter(Boolean);
+      if (!items.length) throw new Error('vuoto');
+      all = merge(all, items); persist(); render(); scheduleSync();
+      $('fileMsg').textContent = 'Importate ' + items.filter((x) => !x.deleted).length + ' mostre.'; $('fileMsg').className = 'msg ok';
+    } catch (err) {
+      $('fileMsg').textContent = 'Il file non contiene mostre valide.'; $('fileMsg').className = 'msg err';
+    }
+  };
+
+  // ---------- avvio ----------
+  render();
+  refreshSyncLabel();
+  sync(false);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { render(); sync(false); } });
+  window.addEventListener('online', () => sync(false));
+  setInterval(render, 60 * 60 * 1000);
+
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
+})();
+</script>
+</body>
+</html>
