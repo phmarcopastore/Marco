@@ -97,6 +97,9 @@ textarea { min-height: 64px; resize: vertical; }
 .tabs { display: flex; gap: 4px; flex-wrap: wrap; }
 .tabs button { min-height: 34px; padding: 4px 12px; font-size: 0.85rem; background: transparent; }
 .tabs button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+select { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; min-height: 34px; max-width: 100%; }
+.panel select { background: var(--bg); min-height: 40px; width: 100%; }
 .legend { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: var(--muted); font-family: var(--font-mono); }
 .legend i { display: block; width: 110px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, hsl(0 75% 50%), hsl(45 85% 50%), hsl(130 55% 42%)); }
 
@@ -180,7 +183,8 @@ textarea { min-height: 64px; resize: vertical; }
     <h2 id="formTitle">Nuova mostra</h2>
     <div class="field full"><label for="fTitle">Titolo</label><input id="fTitle" maxlength="200" placeholder="Es. Paesaggi del Nord"></div>
     <div class="field"><label for="fAuthor">Fotografo / curatore</label><input id="fAuthor" maxlength="200"></div>
-    <div class="field"><label for="fPlace">Luogo e città</label><input id="fPlace" maxlength="200" placeholder="Museo, galleria…"></div>
+    <div class="field"><label for="fPlace">Luogo e città (sigla provincia)</label><input id="fPlace" maxlength="200" placeholder="Es. Palazzo Reale, Milano (MI)"></div>
+    <div class="field full"><label for="fRegion">Regione</label><select id="fRegion"><option value="">Automatica dalla sigla provincia</option></select></div>
     <div class="field"><label for="fStart">Data inizio</label><input id="fStart" type="date"></div>
     <div class="field"><label for="fEnd">Data fine</label><input id="fEnd" type="date"></div>
     <div class="field full"><label for="fLink">Link (opzionale)</label><input id="fLink" type="url" maxlength="500" placeholder="https://"></div>
@@ -193,11 +197,14 @@ textarea { min-height: 64px; resize: vertical; }
   </form>
 
   <div class="toolbar">
+    <div class="filters">
+    <select id="regionFilter" aria-label="Filtra per regione"><option value="">Tutte le regioni</option></select>
     <div class="tabs" role="group" aria-label="Filtro">
       <button type="button" data-filter="active" aria-pressed="true">In corso e in arrivo</button>
       <button type="button" data-filter="on" aria-pressed="false">Solo in corso</button>
       <button type="button" data-filter="ended" aria-pressed="false">Concluse</button>
       <button type="button" data-filter="all" aria-pressed="false">Tutte</button>
+    </div>
     </div>
     <div class="legend" aria-hidden="true">0 gg <i></i> 60+ gg</div>
   </div>
@@ -219,6 +226,7 @@ textarea { min-height: 64px; resize: vertical; }
   const K_FILTER = 'mostre.filter';
   const GIST_FILE = 'mostre-fotografiche.json';
   const $ = (id) => document.getElementById(id);
+  const REGIONS = ['Abruzzo','Basilicata','Calabria','Campania','Emilia-Romagna','Friuli Venezia Giulia','Lazio','Liguria','Lombardia','Marche','Molise','Piemonte','Puglia','Sardegna','Sicilia','Toscana','Trentino-Alto Adige','Umbria','Valle d\'Aosta','Veneto','Estero'];
 
   // ---------- storage locale ----------
   const ls = {
@@ -245,7 +253,41 @@ textarea { min-height: 64px; resize: vertical; }
     if (d.deleted) return { id: d.id, deleted: true, updatedAt: t };
     if (!validISO(d.start) || !validISO(d.end) || typeof d.title !== 'string') return null;
     const s = (v) => (typeof v === 'string' ? v : '');
-    return { id: d.id, title: d.title, author: s(d.author), place: s(d.place), start: d.start, end: d.end, link: s(d.link), notes: s(d.notes), updatedAt: t };
+    const out = { id: d.id, title: d.title, author: s(d.author), place: s(d.place), start: d.start, end: d.end, link: s(d.link), notes: s(d.notes), updatedAt: t };
+    if (REGIONS.includes(d.region)) out.region = d.region;
+    return out;
+  }
+
+  // ---------- regioni ----------
+  const PROV = {
+    'Piemonte': 'TO AL AT BI CN NO VB VC',
+    'Valle d\'Aosta': 'AO',
+    'Lombardia': 'MI BG BS CO CR LC LO MN MB PV SO VA',
+    'Trentino-Alto Adige': 'TN BZ',
+    'Veneto': 'VE BL PD RO TV VR VI',
+    'Friuli Venezia Giulia': 'TS GO PN UD',
+    'Liguria': 'GE IM SP SV',
+    'Emilia-Romagna': 'BO FE FC MO PR PC RA RE RN',
+    'Toscana': 'FI AR GR LI LU MS PI PT PO SI',
+    'Umbria': 'PG TR',
+    'Marche': 'AN AP FM MC PU',
+    'Lazio': 'RM FR LT RI VT',
+    'Abruzzo': 'AQ CH PE TE',
+    'Molise': 'CB IS',
+    'Campania': 'NA AV BN CE SA',
+    'Puglia': 'BA BT BR FG LE TA',
+    'Basilicata': 'PZ MT',
+    'Calabria': 'CZ CS KR RC VV',
+    'Sicilia': 'PA AG CL CT EN ME RG SR TP',
+    'Sardegna': 'CA NU OR SS SU',
+  };
+  const PROV2REG = {};
+  for (const r in PROV) PROV[r].split(' ').forEach((p) => { PROV2REG[p] = r; });
+  function regionOf(m) {
+    if (m.region) return m.region;
+    const hits = (m.place || '').match(/\(([A-Za-z]{2})\)/g);
+    if (hits) { const code = hits[hits.length - 1].slice(1, 3).toUpperCase(); if (PROV2REG[code]) return PROV2REG[code]; }
+    return '';
   }
   // unisce due elenchi: per ogni id vince la modifica più recente
   function merge(a, b) {
@@ -283,6 +325,7 @@ textarea { min-height: 64px; resize: vertical; }
 
   // ---------- render ----------
   let filter = ls.get(K_FILTER, 'active');
+  let region = ls.get('mostre.region', '');
   let editingId = null, confirmId = null;
   function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function showStatus(t) { $('status').textContent = t || ''; }
@@ -292,11 +335,24 @@ textarea { min-height: 64px; resize: vertical; }
     $('today').textContent = fmtDate(today);
     const rows = live().map((m) => ({ m, s: stateOf(m, today) }));
     let nOn = 0, nSoon = 0, nEnding = 0;
-    rows.forEach(({ s }) => { if (s.status === 'on') { nOn++; if (s.left <= 14) nEnding++; } if (s.status === 'soon') nSoon++; });
+    rows.forEach(({ m, s }) => {
+      if (region && (regionOf(m) || 'Senza regione') !== region) return;
+      if (s.status === 'on') { nOn++; if (s.left <= 14) nEnding++; } if (s.status === 'soon') nSoon++;
+    });
     $('nOn').textContent = nOn; $('nSoon').textContent = nSoon; $('nEnding').textContent = nEnding;
     document.querySelectorAll('.tabs button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.filter === filter)));
 
-    const shown = rows.filter(({ s }) => filter === 'all' ? true : filter === 'on' ? s.status === 'on' : filter === 'ended' ? s.status === 'ended' : s.status !== 'ended');
+    // menu regioni: solo quelle presenti, con il numero di mostre non concluse
+    const counts = {};
+    rows.forEach(({ m, s }) => { const r = regionOf(m) || 'Senza regione'; counts[r] = (counts[r] || 0) + (s.status === 'ended' ? 0 : 1); });
+    const sel = $('regionFilter');
+    const names = Object.keys(counts).sort((a, b) => a === 'Senza regione' ? 1 : b === 'Senza regione' ? -1 : a.localeCompare(b, 'it'));
+    if (region && !names.includes(region)) names.push(region);
+    sel.replaceChildren(new Option('Tutte le regioni', ''));
+    names.forEach((r) => sel.append(new Option(r + ' (' + (counts[r] || 0) + ')', r)));
+    sel.value = region;
+
+    const shown = rows.filter(({ m, s }) => (!region || (regionOf(m) || 'Senza regione') === region) && (filter === 'all' ? true : filter === 'on' ? s.status === 'on' : filter === 'ended' ? s.status === 'ended' : s.status !== 'ended'));
     shown.sort((a, b) => filter === 'ended' ? b.m.end.localeCompare(a.m.end) : a.m.end.localeCompare(b.m.end) || a.m.start.localeCompare(b.m.start));
 
     const list = $('list');
@@ -372,6 +428,7 @@ textarea { min-height: 64px; resize: vertical; }
     $('fEnd').value = m ? m.end : '';
     $('fLink').value = m ? m.link : '';
     $('fNotes').value = m ? m.notes : '';
+    $('fRegion').value = m && m.region ? m.region : '';
     $('fErr').textContent = '';
     $('f').hidden = false;
     $('f').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -392,11 +449,14 @@ textarea { min-height: 64px; resize: vertical; }
     if (!validISO(d.start) || !validISO(d.end)) return err('Inserisci sia la data di inizio sia quella di fine.');
     if (d.end < d.start) return err('La data di fine deve essere uguale o successiva all’inizio.');
     if (d.link && !/^https?:\/\//i.test(d.link)) return err('Il link deve iniziare con http:// o https://');
+    if ($('fRegion').value) d.region = $('fRegion').value;
     upsert(d);
     closeForm();
   });
 
   document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => { filter = b.dataset.filter; ls.set(K_FILTER, filter); render(); }));
+  $('regionFilter').addEventListener('change', (e) => { region = e.target.value; ls.set('mostre.region', region); render(); });
+  REGIONS.forEach((r) => $('fRegion').append(new Option(r, r)));
 
   // ---------- sincronizzazione con GitHub Gist ----------
   const API = 'https://api.github.com';
