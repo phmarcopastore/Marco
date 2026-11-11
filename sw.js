@@ -1,6 +1,6 @@
 // Service worker: l'app funziona anche offline.
 // Cambia VERSION quando aggiorni i file, così i telefoni scaricano la nuova versione.
-const VERSION = 'mostre-v2';
+const VERSION = 'mostre-v3';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', (e) => {

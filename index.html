@@ -97,6 +97,11 @@ textarea { min-height: 64px; resize: vertical; }
 .tabs { display: flex; gap: 4px; flex-wrap: wrap; }
 .tabs button { min-height: 34px; padding: 4px 12px; font-size: 0.85rem; background: transparent; }
 .tabs button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.banner { background: var(--surface); border: 1px solid var(--accent); border-radius: 8px; padding: 12px 16px; display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.banner > div { min-width: 0; flex: 1 1 220px; }
+.banner b { display: block; font-family: var(--font-display); }
+.banner span { font-size: 0.88rem; color: var(--muted); }
+.banner .btns { display: flex; gap: 8px; flex: 0 0 auto; }
 .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 select { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; min-height: 34px; max-width: 100%; }
 .panel select { background: var(--bg); min-height: 40px; width: 100%; }
@@ -155,6 +160,14 @@ select { font: inherit; color: var(--ink); background: var(--surface); border: 1
     <div><b id="nEnding">0</b><span>Chiudono entro 14 gg</span></div>
   </section>
 
+  <section class="banner" id="recBanner" hidden aria-live="polite">
+    <div><b>Mostre consigliate</b><span id="recText"></span></div>
+    <div class="btns">
+      <button type="button" class="ghost" id="btnRecLater">Non ora</button>
+      <button type="button" class="primary" id="btnRec">Carica</button>
+    </div>
+  </section>
+
   <!-- Impostazioni sincronizzazione -->
   <section class="panel" id="syncPanel" hidden>
     <h2>Sincronizzazione tra telefono e computer</h2>
@@ -168,6 +181,12 @@ select { font: inherit; color: var(--ink); background: var(--surface); border: 1
       <button type="button" class="ghost danger" id="btnUnlink">Scollega</button>
       <button type="button" class="ghost" id="btnCloseSync">Chiudi</button>
       <button type="button" class="primary" id="btnSaveSync">Salva e sincronizza</button>
+    </div>
+    <h2>Mostre consigliate</h2>
+    <p class="help">Un elenco di mostre aggiornato da chi gestisce l’app. Caricarlo aggiunge o aggiorna le mostre consigliate; quelle che hai inserito o modificato tu restano come sono.</p>
+    <div class="actions">
+      <span class="msg" id="recMsg" role="status"></span>
+      <button type="button" class="ghost" id="btnRec2">Carica le mostre consigliate</button>
     </div>
     <h2>Copia di sicurezza su file</h2>
     <p class="help">In alternativa puoi esportare le mostre in un file e importarlo sull’altro dispositivo. L’importazione unisce i dati, non cancella nulla.</p>
@@ -604,11 +623,55 @@ select { font: inherit; color: var(--ink); background: var(--surface); border: 1
     }
   };
 
+  // ---------- mostre consigliate (consigliate.json nel sito) ----------
+  const K_REC = 'mostre.rec.savedAt';
+  async function fetchRec() {
+    const r = await fetch('consigliate.json', { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    const t = Date.parse(d.savedAt) || 0;
+    // le voci senza data di modifica prendono la data di pubblicazione dell'elenco
+    const items = (Array.isArray(d.items) ? d.items : []).map((x) => norm({ updatedAt: t, ...x })).filter(Boolean);
+    return { t, items };
+  }
+  function newOnes(items) { const have = new Set(all.map((x) => x.id)); return items.filter((x) => !x.deleted && !have.has(x.id)).length; }
+  async function checkRec() {
+    try {
+      const { t, items } = await fetchRec();
+      const last = Number(ls.get(K_REC, '0'));
+      if (!items.length || t <= last) { $('recBanner').hidden = true; return; }
+      const n = newOnes(items);
+      const when = new Date(t).toLocaleDateString('it-IT', { day: 'numeric', month: 'long' });
+      $('recText').textContent = last
+        ? 'Elenco aggiornato il ' + when + (n ? ': ' + n + (n === 1 ? ' nuova mostra.' : ' nuove mostre.') : ': date e informazioni aggiornate.')
+        : n + ' mostre fotografiche selezionate, da aggiungere al tuo elenco.';
+      $('recBanner').hidden = false;
+    } catch (e) { /* nessun elenco o offline: niente banner */ }
+  }
+  async function applyRec(msgEl) {
+    try {
+      const { t, items } = await fetchRec();
+      const n = newOnes(items);
+      all = merge(all, items); persist(); render(); scheduleSync();
+      ls.set(K_REC, String(t));
+      $('recBanner').hidden = true;
+      const txt = n ? 'Aggiunte ' + n + ' mostre consigliate.' : 'Mostre consigliate aggiornate.';
+      if (msgEl) { msgEl.textContent = txt; msgEl.className = 'msg ok'; } else showStatus(txt);
+    } catch (e) {
+      const txt = 'Non riesco a scaricare le mostre consigliate. Controlla la connessione e riprova.';
+      if (msgEl) { msgEl.textContent = txt; msgEl.className = 'msg err'; } else showStatus(txt);
+    }
+  }
+  $('btnRec').onclick = () => applyRec(null);
+  $('btnRec2').onclick = () => applyRec($('recMsg'));
+  $('btnRecLater').onclick = () => { $('recBanner').hidden = true; };
+
   // ---------- avvio ----------
   render();
   refreshSyncLabel();
   sync(false);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { render(); sync(false); } });
+  checkRec();
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { render(); sync(false); checkRec(); } });
   window.addEventListener('online', () => sync(false));
   setInterval(render, 60 * 60 * 1000);
 
