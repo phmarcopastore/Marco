@@ -102,6 +102,11 @@ textarea { min-height: 64px; resize: vertical; }
 .banner b { display: block; font-family: var(--font-display); }
 .banner span { font-size: 0.88rem; color: var(--muted); }
 .banner .btns { display: flex; gap: 8px; flex: 0 0 auto; }
+.search { position: relative; display: flex; align-items: center; margin-bottom: -8px; }
+.search input { background: var(--surface); padding-left: 36px; padding-right: 96px; -webkit-appearance: none; appearance: none; }
+.search::before { content: ""; position: absolute; left: 12px; width: 14px; height: 14px; border: 2px solid var(--muted); border-radius: 50%; box-sizing: border-box; pointer-events: none; transform: translate(-1px, -1px); }
+.search::after { content: ""; position: absolute; left: 23px; top: calc(50% + 3px); width: 6px; height: 2px; background: var(--muted); transform: rotate(45deg); pointer-events: none; }
+.search-count { position: absolute; right: 36px; font-size: 0.75rem; color: var(--muted); font-family: var(--font-mono); pointer-events: none; }
 .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 select { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; min-height: 34px; max-width: 100%; }
 .panel select { background: var(--bg); min-height: 40px; width: 100%; }
@@ -214,6 +219,11 @@ select { font: inherit; color: var(--ink); background: var(--surface); border: 1
       <button type="submit" class="primary" id="btnSave">Salva</button>
     </div>
   </form>
+
+  <div class="search">
+    <input type="search" id="q" placeholder="Ricerca mostra…" aria-label="Ricerca mostra per parola chiave nel titolo" autocomplete="off" spellcheck="false" enterkeyhint="search">
+    <span class="search-count" id="qCount" aria-live="polite"></span>
+  </div>
 
   <div class="toolbar">
     <div class="filters">
@@ -345,7 +355,16 @@ select { font: inherit; color: var(--ink); background: var(--surface); border: 1
   // ---------- render ----------
   let filter = ls.get(K_FILTER, 'active');
   let region = ls.get('mostre.region', '');
+  let query = '';                   // ricerca per parola chiave nei titoli (non salvata)
   let editingId = null, confirmId = null;
+  // minuscole e senza accenti, così «citta» trova «Città»
+  function fold(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+  function matchesQuery(m) {
+    const words = fold(query).split(/\s+/).filter(Boolean);
+    if (!words.length) return true;
+    const t = fold(m.title);
+    return words.every((w) => t.includes(w));
+  }
   function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function showStatus(t) { $('status').textContent = t || ''; }
 
@@ -371,13 +390,15 @@ select { font: inherit; color: var(--ink); background: var(--surface); border: 1
     names.forEach((r) => sel.append(new Option(r + ' (' + (counts[r] || 0) + ')', r)));
     sel.value = region;
 
-    const shown = rows.filter(({ m, s }) => (!region || (regionOf(m) || 'Senza regione') === region) && (filter === 'all' ? true : filter === 'on' ? s.status === 'on' : filter === 'ended' ? s.status === 'ended' : s.status !== 'ended'));
+    const shown = rows.filter(({ m, s }) => (!region || (regionOf(m) || 'Senza regione') === region) && (filter === 'all' ? true : filter === 'on' ? s.status === 'on' : filter === 'ended' ? s.status === 'ended' : s.status !== 'ended') && matchesQuery(m));
     shown.sort((a, b) => filter === 'ended' ? b.m.end.localeCompare(a.m.end) : a.m.end.localeCompare(b.m.end) || a.m.start.localeCompare(b.m.start));
+    const searching = query.trim() !== '';
+    $('qCount').textContent = searching ? shown.length + (shown.length === 1 ? ' risultato' : ' risultati') : '';
 
     const list = $('list');
     list.replaceChildren();
     if (!shown.length) {
-      list.append(el('div', 'empty', rows.length ? 'Nessuna mostra in questo filtro.' : 'Ancora nessuna mostra. Tocca “+ Nuova mostra” per aggiungere la prima con titolo, luogo e date.'));
+      list.append(el('div', 'empty', searching ? 'Nessun titolo contiene «' + query.trim() + '» con i filtri attuali. Prova un’altra parola o il filtro “Tutte”.' : rows.length ? 'Nessuna mostra in questo filtro.' : 'Ancora nessuna mostra. Tocca “+ Nuova mostra” per aggiungere la prima con titolo, luogo e date.'));
       return;
     }
     for (const { m, s } of shown) {
@@ -475,6 +496,8 @@ select { font: inherit; color: var(--ink); background: var(--surface); border: 1
 
   document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => { filter = b.dataset.filter; ls.set(K_FILTER, filter); render(); }));
   $('regionFilter').addEventListener('change', (e) => { region = e.target.value; ls.set('mostre.region', region); render(); });
+  $('q').addEventListener('input', (e) => { query = e.target.value; render(); });
+  $('q').addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.target.value = ''; query = ''; render(); } else if (e.key === 'Enter') e.target.blur(); });
   REGIONS.forEach((r) => $('fRegion').append(new Option(r, r)));
 
   // ---------- sincronizzazione con GitHub Gist ----------
